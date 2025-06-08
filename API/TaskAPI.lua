@@ -10,7 +10,7 @@ local TaskAssets = {
 
 local Players = game:GetService("Players")
 local LPlayer = Players.LocalPlayer
-local PlayerGui = LPlayer:WaitForChild("PlayerGui")
+local CoreGui = game:GetService("CoreGui")
 local TweenService = game:GetService("TweenService")
 local InputService = game:GetService("UserInputService")
 local Lighting = game:GetService("Lighting")
@@ -21,8 +21,9 @@ getgenv().TaskClient.API = TaskAPI
 local TaskGui = Instance.new("ScreenGui")
 TaskGui.Name = "TaskGui"
 TaskGui.Enabled = false
-TaskGui.ResetOnSpawn = true
-TaskGui.Parent = PlayerGui
+TaskGui.ResetOnSpawn = false
+TaskGui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
+TaskGui.Parent = CoreGui
 
 local BlurEffect = Instance.new("BlurEffect")
 BlurEffect.Name = "BlurEffect"
@@ -34,7 +35,7 @@ local NotificationGui = Instance.new("ScreenGui")
 NotificationGui.Name = "NotificationGui"
 NotificationGui.ResetOnSpawn = false
 NotificationGui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
-NotificationGui.Parent = PlayerGui
+NotificationGui.Parent = CoreGui  -- Changed to CoreGui
 
 local NotificationsContainer = Instance.new("Frame")
 NotificationsContainer.Name = "NotificationsContainer"
