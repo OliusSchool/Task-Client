@@ -10,7 +10,7 @@ local TaskAssets = {
 
 local Players = game:GetService("Players")
 local LPlayer = Players.LocalPlayer
-local CoreGui = game:GetService("CoreGui")
+local CoreGui = game:GetService("PlayerGui")
 local TweenService = game:GetService("TweenService")
 local InputService = game:GetService("UserInputService")
 local Lighting = game:GetService("Lighting")
@@ -174,7 +174,6 @@ function TaskAPI:CreateCategory(CData)
 	TaskFrame.Position = CData.Position
 	TaskFrame.BackgroundTransparency = 1
 	TaskFrame.Visible = false
-	TaskFrame.ZIndex = 3
 	TaskFrame.Parent = TaskGui
 
 	local TaskFrameUICorner = Instance.new("UICorner")
@@ -189,7 +188,7 @@ function TaskAPI:CreateCategory(CData)
 	CategoryFrame.Position = UDim2.new(0.5, 0, 0, 0)
 	CategoryFrame.ImageColor3 = Color3.fromRGB(11, 11, 11)
 	CategoryFrame.BackgroundTransparency = 1
-	CategoryFrame.ZIndex = 2
+	CategoryFrame.ZIndex = 1
 	CategoryFrame.Parent = TaskFrame
 
 	local CategoryText = Instance.new("TextLabel")
@@ -201,7 +200,6 @@ function TaskAPI:CreateCategory(CData)
 	CategoryText.TextSize = 18
 	CategoryText.TextColor3 = Color3.fromRGB(255, 255, 255)
 	CategoryText.BackgroundTransparency = 1
-	CategoryText.ZIndex = 1
 	CategoryText.Parent = CategoryFrame
 
 	table.insert(TaskAPI.Categories, {
