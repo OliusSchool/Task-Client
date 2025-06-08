@@ -17,6 +17,11 @@ local function DownloadFile(Path)
     local Url = GitUrl .. Path
     local SavePath = "Task Client/" .. Path
 
+    local ParentDir = SavePath:match("(.+)/[^/]+$")
+    if ParentDir and not isfolder(ParentDir) then
+        makefolder(ParentDir)
+    end
+
     local Response
     if syn then
         Response = syn.request({Url = Url, Method = "GET"})
@@ -25,14 +30,14 @@ local function DownloadFile(Path)
     elseif http_request then
         Response = http_request({Url = Url, Method = "GET"})
     else
-        error("bad executor")
+        error("Unsupported executor")
     end
     
     if Response.StatusCode == 200 then
         writefile(SavePath, Response.Body)
         return true
     else
-        warn("Failed to download: " .. Url)
+        warn("Failed to download: " .. Url .. " (Status: " .. Response.StatusCode .. ")")
         return false
     end
 end
@@ -48,36 +53,79 @@ local function GetDirectoryContents(Folder)
     elseif http_request then
         Response = http_request({Url = APIUrl, Method = "GET"})
     else
-        erro("unsupported executor")
+        error("Unsupported executor")
+    end
+    
+    if Response.StatusCode ~= 200 then
+        warn("Failed to get Folder Files: " .. APIUrl .. " (Status: " .. Response.StatusCode .. ")")
+        return {}
     end
     
     local Files = {}
-    local Data = game:GetService("HttpService"):JSONDecode(Response.Body)
+    local success, Data = pcall(function()
+        return game:GetService("HttpService"):JSONDecode(Response.Body)
+    end)
+    
+    if not success then
+        warn("Failed to read GitHub API response for: " .. Folder)
+        return {}
+    end
     
     for _, item in ipairs(Data) do
         if item.type == "file" then
             table.insert(Files, Folder .. "/" .. item.name)
+        elseif item.type == "dir" then
+            local subFiles = GetDirectoryContents(item.path)
+            for _, subFile in ipairs(subFiles) do
+                table.insert(Files, subFile)
+            end
         end
     end
     
     return Files
 end
 
+local function DownloadFolderWithRetry(Folder, maxRetries)
+    local retries = 0
+    local success = false
+    
+    while retries < maxRetries do
+        local Files = GetDirectoryContents(Folder)
+        
+        if #Files > 0 then
+            for _, File in ipairs(Files) do
+                if DownloadFile(File) then
+                    success = true
+                end
+            end
+            
+            if success then
+                return true
+            end
+        end
+        
+        warn("Retrying download for folder: " .. Folder .. " (attempt " .. (retries + 1) .. "/" .. maxRetries .. ")")
+        retries = retries + 1
+        wait(1)
+    end
+    
+    warn("Failed to download folder after " .. maxRetries .. " attempts: " .. Folder)
+    return false
+end
+
 local FolderDownload = {"API", "Games", "Assets"}
+local Retry = 3
 
 for _, Folder in ipairs(FolderDownload) do
-    local Files = GetDirectoryContents(Folder)
-    
-    if #Files > 0 then
-        for _, File in ipairs(Files) do
-            DownloadFile(File)
-        end
-    else
-        warn("No Files found in folder: " .. Folder)
-    end
+    DownloadFolderWithRetry(Folder, Retry)
 end
 
 local function ExecuteFile(Path)
+    if not isfile(Path) then
+        warn("File not found: " .. Path)
+        return nil
+    end
+    
     local Success, Content = pcall(readfile, Path)
     if not Success then
         warn("Failed to read file: " .. Path)
@@ -103,6 +151,11 @@ if TaskAPI then
     if getgenv().TaskClient and getgenv().TaskClient.API then
         TaskAPI.Notification("Loader", "Task Client initialized successfully!", 3, "Success")
     else
-        TaskAPI.Notification("Loader", "Task Client failed to initialize properly", 5, "Error")
+        warn("Task Client failed to load properly!")
+        if TaskAPI.Notification then
+            TaskAPI.Notification("Loader", "Task Client failed to load properly!", 5, "Error")
+        end
     end
+else
+    warn("Critical error: Failed to load TaskAPI.lua")
 end
