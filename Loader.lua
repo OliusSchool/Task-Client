@@ -67,7 +67,7 @@ local function GetDirectoryContents(Folder)
     end)
     
     if not Success then
-        warn("Failed to parse GitHub API response for: " .. Folder)
+        warn("Failed to read GitHub API response for: " .. Folder)
         return {}
     end
     
