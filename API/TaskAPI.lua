@@ -174,7 +174,7 @@ function TaskAPI:CreateCategory(CData)
 	TaskFrame.Position = CData.Position
 	TaskFrame.BackgroundTransparency = 1
 	TaskFrame.Visible = false
-	TaskFrame.ZIndex = 1
+	TaskFrame.ZIndex = 3
 	TaskFrame.Parent = TaskGui
 
 	local TaskFrameUICorner = Instance.new("UICorner")
@@ -201,7 +201,7 @@ function TaskAPI:CreateCategory(CData)
 	CategoryText.TextSize = 18
 	CategoryText.TextColor3 = Color3.fromRGB(255, 255, 255)
 	CategoryText.BackgroundTransparency = 1
-	CategoryText.ZIndex = 3
+	CategoryText.ZIndex = 1
 	CategoryText.Parent = CategoryFrame
 
 	table.insert(TaskAPI.Categories, {
