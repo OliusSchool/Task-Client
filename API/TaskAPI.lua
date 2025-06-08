@@ -10,7 +10,7 @@ local TaskAssets = {
 
 local Players = game:GetService("Players")
 local LPlayer = Players.LocalPlayer
-local CoreGui = game:GetService("PlayerGui")
+local PlayerGui = LPlayer:WaitForChild("CoreGui")
 local TweenService = game:GetService("TweenService")
 local InputService = game:GetService("UserInputService")
 local Lighting = game:GetService("Lighting")
@@ -21,9 +21,8 @@ getgenv().TaskClient.API = TaskAPI
 local TaskGui = Instance.new("ScreenGui")
 TaskGui.Name = "TaskGui"
 TaskGui.Enabled = false
-TaskGui.ResetOnSpawn = false
-TaskGui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
-TaskGui.Parent = CoreGui
+TaskGui.ResetOnSpawn = true
+TaskGui.Parent = PlayerGui
 
 local BlurEffect = Instance.new("BlurEffect")
 BlurEffect.Name = "BlurEffect"
@@ -35,7 +34,7 @@ local NotificationGui = Instance.new("ScreenGui")
 NotificationGui.Name = "NotificationGui"
 NotificationGui.ResetOnSpawn = false
 NotificationGui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
-NotificationGui.Parent = CoreGui
+NotificationGui.Parent = PlayerGui
 
 local NotificationsContainer = Instance.new("Frame")
 NotificationsContainer.Name = "NotificationsContainer"
@@ -210,15 +209,14 @@ function TaskAPI:CreateCategory(CData)
 end
 
 InputService.InputBegan:Connect(function(Input, GameProcessed)
-    if GameProcessed then return end
-    if Input.KeyCode == Enum.KeyCode.LeftAlt then
-        TaskGui.Enabled = not TaskGui.Enabled
-        BlurEffect.Enabled = TaskGui.Enabled
-
-        if not TaskGui.Enabled then
-            BlurEffect.Enabled = false
-        end
-    end
+	if GameProcessed then return end
+	if Input.KeyCode == Enum.KeyCode.LeftAlt then
+		TaskGui.Enabled = not TaskGui.Enabled
+		BlurEffect.Enabled = TaskGui.Enabled
+		for _, Category in ipairs(TaskAPI.Categories) do
+			Category.TaskFrame.Visible = TaskGui.Enabled
+		end
+	end
 end)
 
 return TaskAPI
