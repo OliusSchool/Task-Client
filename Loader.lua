@@ -57,17 +57,18 @@ local function GetDirectoryContents(Folder)
     end
     
     if Response.StatusCode ~= 200 then
-        warn("Failed to get Folder Files: " .. Folder .. " (Status: " .. Response.StatusCode .. ")")
+        -- Changed to use folder name instead of API URL
+        warn("Failed to get files for folder: " .. Folder .. " (Status: " .. Response.StatusCode .. ")")
         return {}
     end
     
     local Files = {}
-    local success, Data = pcall(function()
+    local Success, Data = pcall(function()
         return game:GetService("HttpService"):JSONDecode(Response.Body)
     end)
     
-    if not success then
-        warn("Failed to read GitHub API response for: " .. Folder)
+    if not Success then
+        warn("Failed to parse GitHub API response for: " .. Folder)
         return {}
     end
     
@@ -86,26 +87,26 @@ local function GetDirectoryContents(Folder)
 end
 
 local function DownloadFolderWithRetry(Folder, maxRetries)
-    local retries = 0
-    local success = false
+    local Retries = 0
+    local Success = false
     
-    while retries < maxRetries do
+    while Retries < maxRetries do
         local Files = GetDirectoryContents(Folder)
         
         if #Files > 0 then
             for _, File in ipairs(Files) do
                 if DownloadFile(File) then
-                    success = true
+                    Success = true
                 end
             end
             
-            if success then
+            if Success then
                 return true
             end
         end
         
-        warn("Retrying download for folder: " .. Folder .. " (attempt " .. (retries + 1) .. "/" .. maxRetries .. ")")
-        retries = retries + 1
+        warn("Retrying download for folder: " .. Folder .. " (attempt " .. (Retries + 1) .. "/" .. maxRetries .. ")")
+        Retries = Retries + 1
         wait(1)
     end
     
@@ -149,7 +150,7 @@ if TaskAPI then
     ExecuteFile("Task Client/API/Categories.lua")
 
     if getgenv().TaskClient and getgenv().TaskClient.API then
-        TaskAPI.Notification("Loader", "Task Client initialized successfully!", 3, "Success")
+        TaskAPI.Notification("Loader", "Task Client initialized Successfully!", 3, "Success")
     else
         warn("Task Client failed to load properly!")
         if TaskAPI.Notification then
@@ -157,5 +158,5 @@ if TaskAPI then
         end
     end
 else
-    warn("Critical error: Failed to load TaskAPI.lua")
+    warn("Critical error: Failed to load TaskAPI")
 end
