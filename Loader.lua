@@ -1,10 +1,10 @@
 local GitUrl = "https://raw.githubusercontent.com/OliusSchool/Task-Client/main/"
 
 local Folders = {
-    "Task Client",
-    "Task Client/API",
-    "Task Client/Games",
-    "Task Client/Assets"
+    "Task",
+    "Task/API",
+    "Task/Games",
+    "Task/Assets"
 }
 
 for _, Folder in ipairs(Folders) do
@@ -15,7 +15,7 @@ end
 
 local function DownloadFile(Path)
     local Url = GitUrl .. Path
-    local SavePath = "Task Client/" .. Path
+    local SavePath = "Task/" .. Path
 
     local ParentDir = SavePath:match("(.+)/[^/]+$")
     if ParentDir and not isfolder(ParentDir) then
@@ -141,19 +141,19 @@ local function RunFile(Path)
     return fn()
 end
 
-local TaskAPI = RunFile("Task Client/API/TaskAPI.lua")
+local TaskAPI = RunFile("Task/API/TaskAPI.lua")
 
 if TaskAPI then
     getgenv().TaskAPI = TaskAPI
 
-    RunFile("Task Client/API/Categories.lua")
+    RunFile("Task/API/Categories.lua")
 
     if getgenv().TaskClient and getgenv().TaskClient.API then
-        TaskAPI.Notification("Loader", "Task Client initialized Successfully!", 3, "Success")
+        TaskAPI.Notification("Loader", "Task initialized Successfully!", 3, "Success")
     else
-        warn("Task Client failed to load properly!")
+        warn("Task failed to load properly!")
         if TaskAPI.Notification then
-            TaskAPI.Notification("Loader", "Task Client failed to load properly!", 5, "Error")
+            TaskAPI.Notification("Loader", "Task failed to load properly!", 5, "Error")
         end
     end
 else
