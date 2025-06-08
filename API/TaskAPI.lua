@@ -174,6 +174,7 @@ function TaskAPI:CreateCategory(CData)
 	TaskFrame.Position = CData.Position
 	TaskFrame.BackgroundTransparency = 1
 	TaskFrame.Visible = false
+	TaskFrame.ZIndex = 1
 	TaskFrame.Parent = TaskGui
 
 	local TaskFrameUICorner = Instance.new("UICorner")
@@ -188,7 +189,7 @@ function TaskAPI:CreateCategory(CData)
 	CategoryFrame.Position = UDim2.new(0.5, 0, 0, 0)
 	CategoryFrame.ImageColor3 = Color3.fromRGB(11, 11, 11)
 	CategoryFrame.BackgroundTransparency = 1
-	CategoryFrame.ZIndex = 1
+	CategoryFrame.ZIndex = 2
 	CategoryFrame.Parent = TaskFrame
 
 	local CategoryText = Instance.new("TextLabel")
@@ -200,6 +201,7 @@ function TaskAPI:CreateCategory(CData)
 	CategoryText.TextSize = 18
 	CategoryText.TextColor3 = Color3.fromRGB(255, 255, 255)
 	CategoryText.BackgroundTransparency = 1
+	CategoryText.ZIndex = 3
 	CategoryText.Parent = CategoryFrame
 
 	table.insert(TaskAPI.Categories, {
@@ -210,14 +212,15 @@ function TaskAPI:CreateCategory(CData)
 end
 
 InputService.InputBegan:Connect(function(Input, GameProcessed)
-	if GameProcessed then return end
-	if Input.KeyCode == Enum.KeyCode.LeftAlt then
-		TaskGui.Enabled = not TaskGui.Enabled
-		BlurEffect.Enabled = TaskGui.Enabled
-		for _, Category in ipairs(TaskAPI.Categories) do
-			Category.TaskFrame.Visible = TaskGui.Enabled
-		end
-	end
+    if GameProcessed then return end
+    if Input.KeyCode == Enum.KeyCode.LeftAlt then
+        TaskGui.Enabled = not TaskGui.Enabled
+        BlurEffect.Enabled = TaskGui.Enabled
+
+        if not TaskGui.Enabled then
+            BlurEffect.Enabled = false
+        end
+    end
 end)
 
 return TaskAPI
