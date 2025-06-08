@@ -14,12 +14,12 @@ for _, Folder in ipairs(Folders) do
     end
 end
 
-local function DownloadFile(Path, SkipIfExists)
-    SkipIfExists = SkipIfExists or false
+local function DownloadFile(Path, SkipExistings)
+    SkipExistings = SkipExistings or false
     local Url = GitUrl .. Path
     local SavePath = "Task/" .. Path
 
-    if SkipIfExists and isfile(SavePath) then
+    if SkipExistings and isfile(SavePath) then
         return true
     end
 
@@ -91,7 +91,7 @@ local function GetFolderFiles(Folder)
     return Files
 end
 
-local function RetryFolder(Folder, MaxRetries, SkipIfExists)
+local function RetryFolder(Folder, MaxRetries, SkipExistings)
     local Retries = 0
     local Success = false
     
@@ -100,7 +100,7 @@ local function RetryFolder(Folder, MaxRetries, SkipIfExists)
         
         if #Files > 0 then
             for _, File in ipairs(Files) do
-                if DownloadFile(File, SkipIfExists) then
+                if DownloadFile(File, SkipExistings) then
                     Success = true
                 end
             end
@@ -120,16 +120,16 @@ local function RetryFolder(Folder, MaxRetries, SkipIfExists)
 end
 
 local function GetCurrentVersion()
-    if isfile("Task/version") then
-        return readfile("Task/version")
+    if isfile("Task/Version.txt") then
+        return readfile("Task/Version.txt")
     end
     return nil
 end
 
 local function ExtractVersionFromContent(content)
-    local pattern = 'Version%s*=%s*{%s*"([%d%.]+)"%s*}'
-    local version = content:match(pattern)
-    return version
+    local Pattern = 'Version%s*=%s*{%s*"([%d%.]+)"%s*}'
+    local Version = content:match(Pattern)
+    return Version
 end
 
 local function GetNewVersion()
@@ -178,13 +178,12 @@ local FolderDownload = {"API", "Games", "Assets", "Configs"}
 local RetryCount = 3
 
 for _, Folder in ipairs(FolderDownload) do
-    -- Skip existing files in Configs folder
-    local skipExisting = (Folder == "Configs")
-    RetryFolder(Folder, RetryCount, skipExisting)
+    local SkipExisting = (Folder == "Configs")
+    RetryFolder(Folder, RetryCount, SkipExisting)
 end
 
 if NewVersion then
-    writefile("Task/version", NewVersion)
+    writefile("Task/Version.txt", NewVersion)
 end
 
 local function RunFile(Path)
