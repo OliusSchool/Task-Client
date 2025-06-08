@@ -42,7 +42,7 @@ local function DownloadFile(Path)
     end
 end
 
-local function GetDirectoryContents(Folder)
+local function GetFolderFiles(Folder)
     local APIUrl = "https://api.github.com/repos/OliusSchool/Task-Client/contents/" .. Folder
     local Response
     
@@ -75,7 +75,7 @@ local function GetDirectoryContents(Folder)
         if File.type == "file" then
             table.insert(Files, Folder .. "/" .. File.name)
         elseif File.type == "dir" then
-            local SubFiles = GetDirectoryContents(File.path)
+            local SubFiles = GetFolderFiles(File.path)
             for _, SubFile in ipairs(SubFiles) do
                 table.insert(Files, SubFile)
             end
@@ -85,12 +85,12 @@ local function GetDirectoryContents(Folder)
     return Files
 end
 
-local function DownloadFolderWithRetry(Folder, maxRetries)
+local function RetryFolder(Folder, MaxRetries)
     local Retries = 0
     local Success = false
     
-    while Retries < maxRetries do
-        local Files = GetDirectoryContents(Folder)
+    while Retries < MaxRetries do
+        local Files = GetFolderFiles(Folder)
         
         if #Files > 0 then
             for _, File in ipairs(Files) do
@@ -104,12 +104,12 @@ local function DownloadFolderWithRetry(Folder, maxRetries)
             end
         end
         
-        warn("Retrying download for folder: " .. Folder .. " (attempt " .. (Retries + 1) .. "/" .. maxRetries .. ")")
+        warn("Retrying download for folder: " .. Folder .. " (attempt " .. (Retries + 1) .. "/" .. MaxRetries .. ")")
         Retries = Retries + 1
         wait(1)
     end
     
-    warn("Failed to download folder after " .. maxRetries .. " attempts: " .. Folder)
+    warn("Failed to download folder after " .. MaxRetries .. " attempts: " .. Folder)
     return false
 end
 
@@ -117,10 +117,10 @@ local FolderDownload = {"API", "Games", "Assets"}
 local Retry = 3
 
 for _, Folder in ipairs(FolderDownload) do
-    DownloadFolderWithRetry(Folder, Retry)
+    RetryFolder(Folder, Retry)
 end
 
-local function ExecuteFile(Path)
+local function RunFile(Path)
     if not isfile(Path) then
         warn("File not found: " .. Path)
         return nil
@@ -141,12 +141,12 @@ local function ExecuteFile(Path)
     return fn()
 end
 
-local TaskAPI = ExecuteFile("Task Client/API/TaskAPI.lua")
+local TaskAPI = RunFile("Task Client/API/TaskAPI.lua")
 
 if TaskAPI then
     getgenv().TaskAPI = TaskAPI
 
-    ExecuteFile("Task Client/API/Categories.lua")
+    RunFile("Task Client/API/Categories.lua")
 
     if getgenv().TaskClient and getgenv().TaskClient.API then
         TaskAPI.Notification("Loader", "Task Client initialized Successfully!", 3, "Success")
