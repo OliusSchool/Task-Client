@@ -71,13 +71,13 @@ local function GetDirectoryContents(Folder)
         return {}
     end
     
-    for _, item in ipairs(Data) do
-        if item.type == "file" then
-            table.insert(Files, Folder .. "/" .. item.name)
-        elseif item.type == "dir" then
-            local subFiles = GetDirectoryContents(item.path)
-            for _, subFile in ipairs(subFiles) do
-                table.insert(Files, subFile)
+    for _, File in ipairs(Data) do
+        if File.type == "file" then
+            table.insert(Files, Folder .. "/" .. File.name)
+        elseif File.type == "dir" then
+            local SubFiles = GetDirectoryContents(File.path)
+            for _, SubFile in ipairs(SubFiles) do
+                table.insert(Files, SubFile)
             end
         end
     end
