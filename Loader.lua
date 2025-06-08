@@ -73,7 +73,7 @@ for _, Folder in ipairs(FolderDownload) do
             DownloadFile(File)
         end
     else
-        warn("No Files found in: " .. Folder)
+        warn("No Files found in folder: " .. Folder)
     end
 end
 
