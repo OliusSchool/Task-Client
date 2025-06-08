@@ -57,7 +57,6 @@ local function GetDirectoryContents(Folder)
     end
     
     if Response.StatusCode ~= 200 then
-        -- Changed to use folder name instead of API URL
         warn("Failed to get files for folder: " .. Folder .. " (Status: " .. Response.StatusCode .. ")")
         return {}
     end
