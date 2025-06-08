@@ -14,14 +14,14 @@ for _, Folder in ipairs(Folders) do
     end
 end
 
-local function DownloadFile(Path, SkipExistings)
-    SkipExistings = SkipExistings or false
+local function ExtractVersion(Content)
+    local VersionPattern = 'Version%s*=%s*{%s*"([%d%.]+)"%s*}'
+    return Content:match(VersionPattern)
+end
+
+local function DownloadFile(Path)
     local Url = GitUrl .. Path
     local SavePath = "Task/" .. Path
-
-    if SkipExistings and isfile(SavePath) then
-        return true
-    end
 
     local ParentDir = SavePath:match("(.+)/[^/]+$")
     if ParentDir and not isfolder(ParentDir) then
@@ -41,7 +41,7 @@ local function DownloadFile(Path, SkipExistings)
     
     if Response.StatusCode == 200 then
         writefile(SavePath, Response.Body)
-        return true
+        return true, Response.Body
     else
         warn("Failed to download: " .. Url .. " (Status: " .. Response.StatusCode .. ")")
         return false
@@ -87,20 +87,19 @@ local function GetFolderFiles(Folder)
             end
         end
     end
-    
+
     return Files
 end
 
-local function RetryFolder(Folder, MaxRetries, SkipExistings)
+local function RetryFolder(Folder, MaxRetries)
     local Retries = 0
     local Success = false
-    
+
     while Retries < MaxRetries do
         local Files = GetFolderFiles(Folder)
-        
         if #Files > 0 then
             for _, File in ipairs(Files) do
-                if DownloadFile(File, SkipExistings) then
+                if DownloadFile(File) then
                     Success = true
                 end
             end
@@ -109,7 +108,6 @@ local function RetryFolder(Folder, MaxRetries, SkipExistings)
                 return true
             end
         end
-        
         warn("Retrying download for folder: " .. Folder .. " (attempt " .. (Retries + 1) .. "/" .. MaxRetries .. ")")
         Retries = Retries + 1
         wait(1)
@@ -119,36 +117,29 @@ local function RetryFolder(Folder, MaxRetries, SkipExistings)
     return false
 end
 
-local function GetCurrentVersion()
-    if isfile("Task/Version.txt") then
-        return readfile("Task/Version.txt")
+local function NeedsUpdate()
+    local CurrentVersion = nil
+    if isfile("Task/API/TaskAPI.lua") then
+        local Content = readfile("Task/API/TaskAPI.lua")
+        CurrentVersion = ExtractVersion(Content)
     end
-    return nil
-end
 
-local function ExtractVersionFromContent(content)
-    local Pattern = 'Version%s*=%s*{%s*"([%d%.]+)"%s*}'
-    local Version = content:match(Pattern)
-    return Version
-end
-
-local function GetNewVersion()
+    local NewContent
     local Url = GitUrl .. "API/TaskAPI.lua"
-    local Response
-    if syn then
-        Response = syn.request({Url = Url, Method = "GET"})
-    elseif request then
-        Response = request({Url = Url, Method = "GET"})
-    elseif http_request then
-        Response = http_request({Url = Url, Method = "GET"})
-    else
-        error("Unsupported executor")
-    end
+    local Response = syn and syn.request({Url = Url, Method = "GET"}) or 
+    request and request({Url = Url, Method = "GET"}) or 
+    http_request and http_request({Url = Url, Method = "GET"})
+    
+    if Response and Response.StatusCode == 200 then
+        NewContent = Response.Body
+        local newVersion = ExtractVersion(NewContent)
 
-    if Response.StatusCode == 200 then
-        return ExtractVersionFromContent(Response.Body)
+        if not CurrentVersion or CurrentVersion ~= newVersion then
+            return true, newVersion
+        end
     end
-    return nil
+    
+    return false
 end
 
 local function CleanInstallation()
@@ -166,24 +157,16 @@ local function CleanInstallation()
     end
 end
 
-local CurrentVersion = GetCurrentVersion()
-local NewVersion = GetNewVersion()
+local FolderDownload = {"API", "Games", "Assets", "Configs"}
+local Retry = 3
 
-if NewVersion and CurrentVersion ~= NewVersion then
-    warn("Version changed from " .. tostring(CurrentVersion) .. " to " .. NewVersion .. ". Cleaning installation.")
+if NeedsUpdate() then
+    warn("Version changed or first install. Cleaning installation.")
     CleanInstallation()
 end
 
-local FolderDownload = {"API", "Games", "Assets", "Configs"}
-local RetryCount = 3
-
 for _, Folder in ipairs(FolderDownload) do
-    local SkipExisting = (Folder == "Configs")
-    RetryFolder(Folder, RetryCount, SkipExisting)
-end
-
-if NewVersion then
-    writefile("Task/Version.txt", NewVersion)
+    RetryFolder(Folder, Retry)
 end
 
 local function RunFile(Path)
@@ -215,7 +198,12 @@ if TaskAPI then
     RunFile("Task/API/Categories.lua")
 
     if getgenv().TaskClient and getgenv().TaskClient.API then
-        TaskAPI.Notification("Loader", "Task initialized Successfully! Version: " .. (NewVersion or "unknown"), 3, "Success")
+        local Version = "unknown"
+        if TaskAPI.Version and type(TaskAPI.Version) == "table" and #TaskAPI.Version > 0 then
+            Version = TaskAPI.Version[1]
+        end
+        
+        TaskAPI.Notification("Loader", "Task initialized Successfully! Version: " .. Version, 3, "Success")
     else
         warn("Task failed to load properly!")
         if TaskAPI.Notification then
