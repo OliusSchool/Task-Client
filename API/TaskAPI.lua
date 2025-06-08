@@ -35,7 +35,7 @@ local NotificationGui = Instance.new("ScreenGui")
 NotificationGui.Name = "NotificationGui"
 NotificationGui.ResetOnSpawn = false
 NotificationGui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
-NotificationGui.Parent = CoreGui  -- Changed to CoreGui
+NotificationGui.Parent = CoreGui
 
 local NotificationsContainer = Instance.new("Frame")
 NotificationsContainer.Name = "NotificationsContainer"
