@@ -1,8 +1,7 @@
 local TaskAPI = {
 	Categories = {},
 	Notifications = {},
-	Version = {"1.0.0"},
-	NextCategoryX = 0.1,
+	Version = {"1.0.0"}
 }
 
 local TaskAssets = {
@@ -155,6 +154,7 @@ function TaskAPI.Notification(Title, Message, Duration, Type)
 end
 
 function TaskAPI:CreateCategory(CData)
+
 	if not CData or type(CData.Name) ~= "string" or CData.Name == "" then
 		TaskAPI.Notification("API Error", "Missing or invalid category name", 5, "Error")
 		return
@@ -167,16 +167,11 @@ function TaskAPI:CreateCategory(CData)
 		end
 	end
 
-	local NextCategoryX = 0.1
-	local PositionX = NextCategoryX
-	NextCategoryX = NextCategoryX + 0.2
-
-
 	local TaskFrame = Instance.new("Frame")
 	TaskFrame.Name = "TaskFrame_" .. CData.Name
 	TaskFrame.Size = UDim2.new(0, 200, 0, 40)
 	TaskFrame.AnchorPoint = Vector2.new(0.5, 0)
-	TaskFrame.Position = UDim2.new(PositionX, 0, 0.2, 0)
+	TaskFrame.Position = CData.Position
 	TaskFrame.BackgroundTransparency = 1
 	TaskFrame.Visible = false
 	TaskFrame.Parent = TaskGui
