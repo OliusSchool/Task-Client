@@ -37,8 +37,8 @@ local function DownloadFile(Path)
     end
 end
 
-local function GetDirectoryContents(folder)
-    local APIUrl = "https://api.github.com/repos/OliusSchool/Task-Client/contents/" .. folder
+local function GetDirectoryContents(Folder)
+    local APIUrl = "https://api.github.com/repos/OliusSchool/Task-Client/contents/" .. Folder
     local Response
     
     if syn then
@@ -48,12 +48,7 @@ local function GetDirectoryContents(folder)
     elseif http_request then
         Response = http_request({Url = APIUrl, Method = "GET"})
     else
-        error("Unsupported executor - no HTTP library found")
-    end
-    
-    if Response.StatusCode ~= 200 then
-        warn("Failed to get directory listing for: " .. folder)
-        return {}
+        erro("unsupported executor")
     end
     
     local Files = {}
@@ -61,7 +56,7 @@ local function GetDirectoryContents(folder)
     
     for _, item in ipairs(Data) do
         if item.type == "file" then
-            table.insert(Files, folder .. "/" .. item.name)
+            table.insert(Files, Folder .. "/" .. item.name)
         end
     end
     
@@ -78,20 +73,20 @@ for _, Folder in ipairs(FolderDownload) do
             DownloadFile(File)
         end
     else
-        warn("No Files found in directory: " .. Folder)
+        warn("No Files found in: " .. Folder)
     end
 end
 
 local function ExecuteFile(Path)
-    local success, content = pcall(readfile, Path)
-    if not success then
+    local Success, Content = pcall(readfile, Path)
+    if not Success then
         warn("Failed to read file: " .. Path)
         return nil
     end
     
-    local fn, err = loadstring(content)
+    local fn, Error = loadstring(Content)
     if not fn then
-        warn("Failed to load " .. Path .. ": " .. err)
+        warn("Failed to load " .. Path .. ": " .. Error)
         return nil
     end
     
