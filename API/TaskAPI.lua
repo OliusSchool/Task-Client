@@ -10,7 +10,7 @@ local TaskAssets = {
 
 local Players = game:GetService("Players")
 local LPlayer = Players.LocalPlayer
-local PlayerGui = LPlayer:WaitForChild("CoreGui")
+local PlayerGui = LPlayer:WaitForChild("PlayerGui")
 local TweenService = game:GetService("TweenService")
 local InputService = game:GetService("UserInputService")
 local Lighting = game:GetService("Lighting")
