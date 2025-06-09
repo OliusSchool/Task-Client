@@ -1,7 +1,7 @@
 local TaskAPI = {
 	Categories = {},
 	Notifications = {},
-	CurrentVersion = {"1.0.1"}
+	CurrentVersion = "1.0.1"
 }
 
 local TaskAssets = {
