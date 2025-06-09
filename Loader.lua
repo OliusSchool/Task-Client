@@ -115,10 +115,7 @@ local function RetryDownload(Folder, MaxRetries)
     return false
 end
 
-DownloadFile("API/Version.txt")
-DownloadFile("API/TaskAPI.lua")
-DownloadFile("API/Categories.lua")
-
+-- FIXED VERSION CHECK LOGIC
 local function GetCurrentVersion()
     if isfile("Task/API/Version.txt") then
         return readfile("Task/API/Version.txt")
@@ -127,9 +124,20 @@ local function GetCurrentVersion()
 end
 
 local function GetNewVersion()
-    local Success = DownloadFile("API/Version.txt")
-    if Success then
-        return readfile("Task/API/Version.txt")
+    local Url = GitUrl .. "API/Version.txt"
+    local Response
+    if syn then
+        Response = syn.request({Url = Url, Method = "GET"})
+    elseif request then
+        Response = request({Url = Url, Method = "GET"})
+    elseif http_request then
+        Response = http_request({Url = Url, Method = "GET"})
+    else
+        error("Unsupported executor")
+    end
+    
+    if Response.StatusCode == 200 then
+        return Response.Body
     end
     return nil
 end
@@ -149,22 +157,29 @@ local function Installation()
     end
 end
 
+-- Read current version BEFORE downloading new files
 local CurrentVersion = GetCurrentVersion()
 local NewVersion = GetNewVersion()
 
+-- Compare versions without overwriting local Version.txt
 if NewVersion and CurrentVersion ~= NewVersion then
     warn("Version changed from " .. tostring(CurrentVersion) .. " to " .. NewVersion)
     Installation()
-end
-
-local Retries = 3
-
-RetryDownload("API", Retries)
-RetryDownload("Games", Retries)
-RetryDownload("Assets", Retries)
-
-if not isfolder("Task/Configs") then
-    RetryDownload("Configs", Retries)
+    
+    -- Now download all files (including Version.txt)
+    local Retries = 3
+    RetryDownload("API", Retries)
+    RetryDownload("Games", Retries)
+    RetryDownload("Assets", Retries)
+    
+    if not isfolder("Task/Configs") then
+        RetryDownload("Configs", Retries)
+    end
+else
+    -- Only download critical files if no update needed
+    DownloadFile("API/Version.txt")
+    DownloadFile("API/TaskAPI.lua")
+    DownloadFile("API/Categories.lua")
 end
 
 local function RunFile(Path)
