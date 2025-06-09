@@ -1,6 +1,5 @@
 local GitUrl = "https://raw.githubusercontent.com/OliusSchool/Task-Client/main/"
 
--- Create necessary folders
 local Folders = {
     "Task",
     "Task/API",
@@ -15,12 +14,10 @@ for _, Folder in ipairs(Folders) do
     end
 end
 
--- Download a file with error handling
 local function DownloadFile(Path)
     local Url = GitUrl .. Path
     local SavePath = "Task/" .. Path
 
-    -- Ensure parent directory exists
     local ParentDir = SavePath:match("(.+)/[^/]+$")
     if ParentDir and not isfolder(ParentDir) then
         makefolder(ParentDir)
@@ -46,7 +43,6 @@ local function DownloadFile(Path)
     end
 end
 
--- Get list of files in a GitHub folder
 local function GetFolderFiles(Folder)
     local APIUrl = "https://api.github.com/repos/OliusSchool/Task-Client/contents/" .. Folder
     local Response
@@ -90,7 +86,6 @@ local function GetFolderFiles(Folder)
     return Files
 end
 
--- Download all files in a folder with retries
 local function DownloadFolder(Folder, MaxRetries)
     local Files = GetFolderFiles(Folder)
     if #Files == 0 then return false end
@@ -120,7 +115,6 @@ local function DownloadFolder(Folder, MaxRetries)
     return false
 end
 
--- Get current and new version
 local function GetCurrentVersion()
     if isfile("Task/API/Version.txt") then
         return readfile("Task/API/Version.txt")
@@ -136,8 +130,7 @@ local function GetNewVersion()
     return nil
 end
 
--- Clean installation (keep Configs)
-local function CleanInstallation()
+local function Installation()
     local FoldersToClean = {
         "Task/API",
         "Task/Games",
@@ -152,34 +145,28 @@ local function CleanInstallation()
     end
 end
 
--- ===== VERSION CHECK =====
 local CurrentVersion = GetCurrentVersion()
 local NewVersion = GetNewVersion()
 
 if NewVersion and CurrentVersion ~= NewVersion then
     warn("Version changed from " .. tostring(CurrentVersion) .. " to " .. NewVersion)
-    CleanInstallation()
+    Installation()
 end
 
--- ===== DOWNLOAD FILES =====
 local Retries = 3
 
--- Always download critical files first
 DownloadFile("API/Version.txt")
 DownloadFile("API/TaskAPI.lua")
 DownloadFile("API/Categories.lua")
 
--- Download folders
 DownloadFolder("API", Retries)
 DownloadFolder("Games", Retries)
 DownloadFolder("Assets", Retries)
 
--- Download Configs but don't overwrite existing files
 if not isfolder("Task/Configs") then
     DownloadFolder("Configs", Retries)
 end
 
--- ===== RUN MAIN SCRIPT =====
 local function RunFile(Path)
     if not isfile(Path) then
         warn("File not found: " .. Path)
@@ -201,7 +188,6 @@ local function RunFile(Path)
     return fn()
 end
 
--- Ensure TaskAPI exists before loading
 if not isfile("Task/API/TaskAPI.lua") then
     warn("Critical error: TaskAPI.lua missing after installation!")
     return
@@ -212,21 +198,19 @@ local TaskAPI = RunFile("Task/API/TaskAPI.lua")
 if TaskAPI then
     getgenv().TaskAPI = TaskAPI
 
-    -- Run Categories
     if isfile("Task/API/Categories.lua") then
         RunFile("Task/API/Categories.lua")
     else
-        warn("Categories.lua missing!")
+        warn("Critical error: Categories.lua missing!")
     end
 
     if getgenv().TaskClient and getgenv().TaskClient.API then
-        -- Get current version
-        local version = "unknown"
+        local Version = "unknown"
         if isfile("Task/API/Version.txt") then
-            version = readfile("Task/API/Version.txt")
+            Version = readfile("Task/API/Version.txt")
         end
         
-        TaskAPI.Notification("Loader", "Task initialized Successfully! Version: " .. version, 3, "Success")
+        TaskAPI.Notification("Loader", "Task initialized Successfully! Version: " .. Version, 3, "Success")
     else
         warn("Task failed to load properly!")
         if TaskAPI.Notification then
