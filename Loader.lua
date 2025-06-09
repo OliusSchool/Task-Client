@@ -86,7 +86,7 @@ local function GetFolderFiles(Folder)
     return Files
 end
 
-local function DownloadFolder(Folder, MaxRetries)
+--[[local function DownloadFolder(Folder, MaxRetries)
     local Files = GetFolderFiles(Folder)
     if #Files == 0 then return false end
     
@@ -113,7 +113,7 @@ local function DownloadFolder(Folder, MaxRetries)
     
     warn("Failed to download folder after " .. MaxRetries .. " attempts: " .. Folder)
     return false
-end
+end]]
 
 local function GetCurrentVersion()
     if isfile("Task/API/Version.txt") then
