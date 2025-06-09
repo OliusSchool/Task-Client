@@ -1,160 +1,113 @@
-local isfile = isfile or function(file)
-    local suc, res = pcall(readfile, file)
-    return suc and res ~= nil and res ~= ''
-end
-
-local delfile = delfile or function(file)
-    writefile(file, '')
-end
-
 local GitUrl = "https://raw.githubusercontent.com/OliusSchool/Task-Client/main/"
-local CommitUrl = "https://api.github.com/repos/OliusSchool/Task-Client/commits/main"
 
--- Create necessary folders
-for _, folder in {"Task", "Task/API", "Task/Games", "Task/Assets", "Task/Configs"} do
-    if not isfolder(folder) then
-        makefolder(folder)
+local Folders = {
+    "Task Client",
+    "Task Client/API",
+    "Task Client/Games",
+    "Task Client/Assets"
+}
+
+for _, Folder in ipairs(Folders) do
+    if not isfolder(Folder) then 
+        makefolder(Folder)
     end
 end
 
-local function getLatestCommit()
-    local response
-    if syn then
-        response = syn.request({Url = CommitUrl, Method = "GET"})
-    elseif request then
-        response = request({Url = CommitUrl, Method = "GET"})
-    elseif http_request then
-        response = http_request({Url = CommitUrl, Method = "GET"})
-    else
-        error("Unsupported executor")
-    end
-    
-    if response.StatusCode ~= 200 then
-        warn("Failed to get commit: " .. response.StatusCode)
-        return nil
-    end
-    
-    local success, data = pcall(function()
-        return game:GetService("HttpService"):JSONDecode(response.Body)
-    end)
-    
-    if success and data.sha then
-        return data.sha
-    end
-    return nil
-end
+local function DownloadFile(Path)
+    local Url = GitUrl .. Path
+    local SavePath = "Task Client/" .. Path
 
-local function downloadFile(path)
-    local url = GitUrl .. path
-    local savePath = "Task/" .. path
-    
-    local parentDir = savePath:match("(.+)/[^/]+$")
-    if parentDir and not isfolder(parentDir) then
-        makefolder(parentDir)
-    end
-
-    local response
+    local Response
     if syn then
-        response = syn.request({Url = url, Method = "GET"})
+        Response = syn.request({Url = Url, Method = "GET"})
     elseif request then
-        response = request({Url = url, Method = "GET"})
+        Response = request({Url = Url, Method = "GET"})
     elseif http_request then
-        response = http_request({Url = url, Method = "GET"})
+        Response = http_request({Url = Url, Method = "GET"})
     else
-        error("Unsupported executor")
+        error("bad executor")
     end
     
-    if response.StatusCode ~= 200 then
-        warn("Failed to download: " .. url .. " (" .. response.StatusCode .. ")")
+    if Response.StatusCode == 200 then
+        writefile(SavePath, Response.Body)
+        return true
+    else
+        warn("Failed to download: " .. Url)
         return false
     end
-    
-    local content = response.Body
-    if path:match("%.lua$") then
-        content = "--WATERMARK:" .. (readfile("Task/commit.txt") or "unknown") .. "\n" .. content
-    end
-    
-    writefile(savePath, content)
-    return true
 end
 
-local function wipeFolder(folder)
-    if not isfolder(folder) then return end
+local function GetDirectoryContents(folder)
+    local APIUrl = "https://api.github.com/repos/OliusSchool/Task-Client/contents/" .. folder
+    local Response
     
-    for _, file in pairs(listfiles(folder)) do
-        if isfile(file) then
-            local content = readfile(file)
-            if content:find("^%-%-WATERMARK:") then
-                delfile(file)
-            end
+    if syn then
+        Response = syn.request({Url = APIUrl, Method = "GET"})
+    elseif request then
+        Response = request({Url = APIUrl, Method = "GET"})
+    elseif http_request then
+        Response = http_request({Url = APIUrl, Method = "GET"})
+    else
+        error("Unsupported executor - no HTTP library found")
+    end
+    
+    if Response.StatusCode ~= 200 then
+        warn("Failed to get directory listing for: " .. folder)
+        return {}
+    end
+    
+    local Files = {}
+    local Data = game:GetService("HttpService"):JSONDecode(Response.Body)
+    
+    for _, item in ipairs(Data) do
+        if item.type == "file" then
+            table.insert(Files, folder .. "/" .. item.name)
         end
     end
+    
+    return Files
 end
 
--- Get current and latest commit
-local currentCommit = isfile("Task/commit.txt") and readfile("Task/commit.txt") or "initial"
-local latestCommit = getLatestCommit() or currentCommit
+local FolderDownload = {"API", "Games", "Assets"}
 
--- Update if commit changed
-if currentCommit ~= latestCommit then
-    warn("Updating from " .. currentCommit:sub(1,7) .. " to " .. latestCommit:sub(1,7))
+for _, Folder in ipairs(FolderDownload) do
+    local Files = GetDirectoryContents(Folder)
     
-    -- Wipe watermarked files
-    wipeFolder("Task/API")
-    wipeFolder("Task/Games")
-    wipeFolder("Task/Assets")
-    
-    -- Download core files
-    downloadFile("API/Version.txt")
-    downloadFile("API/TaskAPI.lua")
-    downloadFile("API/Categories.lua")
-    
-    -- Save new commit
-    writefile("Task/commit.txt", latestCommit)
+    if #Files > 0 then
+        for _, File in ipairs(Files) do
+            DownloadFile(File)
+        end
+    else
+        warn("No Files found in directory: " .. Folder)
+    end
 end
 
--- File loading function
-local function loadFile(path)
-    if not isfile(path) then
-        warn("Missing file: " .. path)
+local function ExecuteFile(Path)
+    local success, content = pcall(readfile, Path)
+    if not success then
+        warn("Failed to read file: " .. Path)
         return nil
     end
     
-    local content = readfile(path)
-    if content:find("^%-%-WATERMARK:") then
-        content = content:gsub("^%-%-WATERMARK:[^\n]*\n", "")
-    end
-    
-    local func, err = loadstring(content)
-    if not func then
-        warn("Failed to load " .. path .. ": " .. err)
+    local fn, err = loadstring(content)
+    if not fn then
+        warn("Failed to load " .. Path .. ": " .. err)
         return nil
     end
     
-    return func()
+    return fn()
 end
 
--- Load main API
-if not isfile("Task/API/TaskAPI.lua") then
-    warn("Critical error: Missing TaskAPI.lua")
-    return
-end
-
-local TaskAPI = loadFile("Task/API/TaskAPI.lua")
+local TaskAPI = ExecuteFile("Task Client/API/TaskAPI.lua")
 
 if TaskAPI then
     getgenv().TaskAPI = TaskAPI
-    
-    -- Load categories
-    if isfile("Task/API/Categories.lua") then
-        loadFile("Task/API/Categories.lua")
+
+    ExecuteFile("Task Client/API/Categories.lua")
+
+    if getgenv().TaskClient and getgenv().TaskClient.API then
+        TaskAPI.Notification("Loader", "Task Client initialized successfully!", 3, "Success")
+    else
+        TaskAPI.Notification("Loader", "Task Client failed to initialize properly", 5, "Error")
     end
-    
-    -- Show success message
-    local version = isfile("Task/API/Version.txt") and readfile("Task/API/Version.txt") or "unknown"
-    if TaskAPI.Notification then
-        TaskAPI.Notification("Loader", "Task loaded successfully! v" .. version, 3, "Success")
-    end
-else
-    warn("Failed to load TaskAPI")
 end
