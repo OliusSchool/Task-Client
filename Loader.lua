@@ -86,7 +86,7 @@ local function GetFolderFiles(Folder)
     return Files
 end
 
---[[local function DownloadFolder(Folder, MaxRetries)
+local function RetryDownload(Folder, MaxRetries)
     local Files = GetFolderFiles(Folder)
     if #Files == 0 then return false end
     
@@ -113,7 +113,7 @@ end
     
     warn("Failed to download folder after " .. MaxRetries .. " attempts: " .. Folder)
     return false
-end]]
+end
 
 local function GetCurrentVersion()
     if isfile("Task/API/Version.txt") then
@@ -153,18 +153,18 @@ if NewVersion and CurrentVersion ~= NewVersion then
     Installation()
 end
 
-local Retries = 3
-
 DownloadFile("API/Version.txt")
 DownloadFile("API/TaskAPI.lua")
 DownloadFile("API/Categories.lua")
 
-DownloadFolder("API", Retries)
-DownloadFolder("Games", Retries)
-DownloadFolder("Assets", Retries)
+local Retries = 3
+
+RetryDownload("API", Retries)
+RetryDownload("Games", Retries)
+RetryDownload("Assets", Retries)
 
 if not isfolder("Task/Configs") then
-    DownloadFolder("Configs", Retries)
+    RetryDownload("Configs", Retries)
 end
 
 local function RunFile(Path)
