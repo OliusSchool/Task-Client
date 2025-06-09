@@ -1,237 +1,160 @@
+local isfile = isfile or function(file)
+    local suc, res = pcall(readfile, file)
+    return suc and res ~= nil and res ~= ''
+end
+
+local delfile = delfile or function(file)
+    writefile(file, '')
+end
+
 local GitUrl = "https://raw.githubusercontent.com/OliusSchool/Task-Client/main/"
+local CommitUrl = "https://api.github.com/repos/OliusSchool/Task-Client/commits/main"
 
-local Folders = {
-    "Task",
-    "Task/API",
-    "Task/Games",
-    "Task/Assets",
-    "Task/Configs"
-}
-
-for _, Folder in ipairs(Folders) do
-    if not isfolder(Folder) then 
-        makefolder(Folder)
+-- Create necessary folders
+for _, folder in {"Task", "Task/API", "Task/Games", "Task/Assets", "Task/Configs"} do
+    if not isfolder(folder) then
+        makefolder(folder)
     end
 end
 
-local function DownloadFile(Path)
-    local Url = GitUrl .. Path
-    local SavePath = "Task/" .. Path
-
-    local ParentDir = SavePath:match("(.+)/[^/]+$")
-    if ParentDir and not isfolder(ParentDir) then
-        makefolder(ParentDir)
-    end
-
-    local Response
+local function getLatestCommit()
+    local response
     if syn then
-        Response = syn.request({Url = Url, Method = "GET"})
+        response = syn.request({Url = CommitUrl, Method = "GET"})
     elseif request then
-        Response = request({Url = Url, Method = "GET"})
+        response = request({Url = CommitUrl, Method = "GET"})
     elseif http_request then
-        Response = http_request({Url = Url, Method = "GET"})
+        response = http_request({Url = CommitUrl, Method = "GET"})
     else
         error("Unsupported executor")
     end
     
-    if Response.StatusCode == 200 then
-        writefile(SavePath, Response.Body)
-        return true
-    else
-        warn("Failed to download: " .. Url .. " (Status: " .. Response.StatusCode .. ")")
-        return false
-    end
-end
-
-local function GetFolderFiles(Folder)
-    local APIUrl = "https://api.github.com/repos/OliusSchool/Task-Client/contents/" .. Folder
-    local Response
-    
-    if syn then
-        Response = syn.request({Url = APIUrl, Method = "GET"})
-    elseif request then
-        Response = request({Url = APIUrl, Method = "GET"})
-    elseif http_request then
-        Response = http_request({Url = APIUrl, Method = "GET"})
-    else
-        error("Unsupported executor")
+    if response.StatusCode ~= 200 then
+        warn("Failed to get commit: " .. response.StatusCode)
+        return nil
     end
     
-    if Response.StatusCode ~= 200 then
-        warn("Failed to get files for folder: " .. Folder .. " (Status: " .. Response.StatusCode .. ")")
-        return {}
-    end
-    
-    local Files = {}
-    local Success, Data = pcall(function()
-        return game:GetService("HttpService"):JSONDecode(Response.Body)
+    local success, data = pcall(function()
+        return game:GetService("HttpService"):JSONDecode(response.Body)
     end)
     
-    if not Success then
-        warn("Failed to read GitHub API response for: " .. Folder)
-        return {}
-    end
-    
-    for _, File in ipairs(Data) do
-        if File.type == "file" then
-            table.insert(Files, Folder .. "/" .. File.name)
-        elseif File.type == "dir" then
-            local SubFiles = GetFolderFiles(File.path)
-            for _, SubFile in ipairs(SubFiles) do
-                table.insert(Files, SubFile)
-            end
-        end
-    end
-    
-    return Files
-end
-
-local function RetryDownload(Folder, MaxRetries)
-    local Files = GetFolderFiles(Folder)
-    if #Files == 0 then return false end
-    
-    local Retries = 0
-    local Success = false
-    
-    while Retries < MaxRetries do
-        Success = true
-        for _, File in ipairs(Files) do
-            if not DownloadFile(File) then
-                Success = false
-                warn("Failed to download: " .. File)
-            end
-        end
-        
-        if Success then
-            return true
-        end
-        
-        warn("Retrying folder: " .. Folder .. " (attempt " .. (Retries + 1) .. "/" .. MaxRetries .. ")")
-        Retries = Retries + 1
-        wait(1)
-    end
-    
-    warn("Failed to download folder after " .. MaxRetries .. " attempts: " .. Folder)
-    return false
-end
-
--- FIXED VERSION CHECK LOGIC
-local function GetCurrentVersion()
-    if isfile("Task/API/Version.txt") then
-        return readfile("Task/API/Version.txt")
+    if success and data.sha then
+        return data.sha
     end
     return nil
 end
 
-local function GetNewVersion()
-    local Url = GitUrl .. "API/Version.txt"
-    local Response
+local function downloadFile(path)
+    local url = GitUrl .. path
+    local savePath = "Task/" .. path
+    
+    local parentDir = savePath:match("(.+)/[^/]+$")
+    if parentDir and not isfolder(parentDir) then
+        makefolder(parentDir)
+    end
+
+    local response
     if syn then
-        Response = syn.request({Url = Url, Method = "GET"})
+        response = syn.request({Url = url, Method = "GET"})
     elseif request then
-        Response = request({Url = Url, Method = "GET"})
+        response = request({Url = url, Method = "GET"})
     elseif http_request then
-        Response = http_request({Url = Url, Method = "GET"})
+        response = http_request({Url = url, Method = "GET"})
     else
         error("Unsupported executor")
     end
     
-    if Response.StatusCode == 200 then
-        return Response.Body
+    if response.StatusCode ~= 200 then
+        warn("Failed to download: " .. url .. " (" .. response.StatusCode .. ")")
+        return false
     end
-    return nil
+    
+    local content = response.Body
+    if path:match("%.lua$") then
+        content = "--WATERMARK:" .. (readfile("Task/commit.txt") or "unknown") .. "\n" .. content
+    end
+    
+    writefile(savePath, content)
+    return true
 end
 
-local function Installation()
-    local FoldersToClean = {
-        "Task/API",
-        "Task/Games",
-        "Task/Assets"
-    }
+local function wipeFolder(folder)
+    if not isfolder(folder) then return end
     
-    for _, Folder in ipairs(FoldersToClean) do
-        if isfolder(Folder) then
-            delfolder(Folder)
-            makefolder(Folder)
+    for _, file in pairs(listfiles(folder)) do
+        if isfile(file) then
+            local content = readfile(file)
+            if content:find("^%-%-WATERMARK:") then
+                delfile(file)
+            end
         end
     end
 end
 
--- Read current version BEFORE downloading new files
-local CurrentVersion = GetCurrentVersion()
-local NewVersion = GetNewVersion()
+-- Get current and latest commit
+local currentCommit = isfile("Task/commit.txt") and readfile("Task/commit.txt") or "initial"
+local latestCommit = getLatestCommit() or currentCommit
 
--- Compare versions without overwriting local Version.txt
-if NewVersion and CurrentVersion ~= NewVersion then
-    warn("Version changed from " .. tostring(CurrentVersion) .. " to " .. NewVersion)
-    Installation()
+-- Update if commit changed
+if currentCommit ~= latestCommit then
+    warn("Updating from " .. currentCommit:sub(1,7) .. " to " .. latestCommit:sub(1,7))
     
-    -- Now download all files (including Version.txt)
-    local Retries = 3
-    RetryDownload("API", Retries)
-    RetryDownload("Games", Retries)
-    RetryDownload("Assets", Retries)
+    -- Wipe watermarked files
+    wipeFolder("Task/API")
+    wipeFolder("Task/Games")
+    wipeFolder("Task/Assets")
     
-    if not isfolder("Task/Configs") then
-        RetryDownload("Configs", Retries)
-    end
-else
-    -- Only download critical files if no update needed
-    DownloadFile("API/Version.txt")
-    DownloadFile("API/TaskAPI.lua")
-    DownloadFile("API/Categories.lua")
+    -- Download core files
+    downloadFile("API/Version.txt")
+    downloadFile("API/TaskAPI.lua")
+    downloadFile("API/Categories.lua")
+    
+    -- Save new commit
+    writefile("Task/commit.txt", latestCommit)
 end
 
-local function RunFile(Path)
-    if not isfile(Path) then
-        warn("File not found: " .. Path)
+-- File loading function
+local function loadFile(path)
+    if not isfile(path) then
+        warn("Missing file: " .. path)
         return nil
     end
     
-    local Success, Content = pcall(readfile, Path)
-    if not Success then
-        warn("Failed to read file: " .. Path)
+    local content = readfile(path)
+    if content:find("^%-%-WATERMARK:") then
+        content = content:gsub("^%-%-WATERMARK:[^\n]*\n", "")
+    end
+    
+    local func, err = loadstring(content)
+    if not func then
+        warn("Failed to load " .. path .. ": " .. err)
         return nil
     end
     
-    local fn, Error = loadstring(Content)
-    if not fn then
-        warn("Failed to load " .. Path .. ": " .. Error)
-        return nil
-    end
-    
-    return fn()
+    return func()
 end
 
+-- Load main API
 if not isfile("Task/API/TaskAPI.lua") then
-    warn("Critical error: TaskAPI.lua missing after installation!")
+    warn("Critical error: Missing TaskAPI.lua")
     return
 end
 
-local TaskAPI = RunFile("Task/API/TaskAPI.lua")
+local TaskAPI = loadFile("Task/API/TaskAPI.lua")
 
 if TaskAPI then
     getgenv().TaskAPI = TaskAPI
-
+    
+    -- Load categories
     if isfile("Task/API/Categories.lua") then
-        RunFile("Task/API/Categories.lua")
-    else
-        warn("Critical error: Categories.lua missing!")
+        loadFile("Task/API/Categories.lua")
     end
-
-    if getgenv().TaskClient and getgenv().TaskClient.API then
-        local Version = "unknown"
-        if isfile("Task/API/Version.txt") then
-            Version = readfile("Task/API/Version.txt")
-        end
-        
-        TaskAPI.Notification("Loader", "Task initialized Successfully! Version: " .. Version, 3, "Success")
-    else
-        warn("Task failed to load properly!")
-        if TaskAPI.Notification then
-            TaskAPI.Notification("Loader", "Task failed to load properly!", 5, "Error")
-        end
+    
+    -- Show success message
+    local version = isfile("Task/API/Version.txt") and readfile("Task/API/Version.txt") or "unknown"
+    if TaskAPI.Notification then
+        TaskAPI.Notification("Loader", "Task loaded successfully! v" .. version, 3, "Success")
     end
 else
-    warn("Critical error: Failed to load TaskAPI")
+    warn("Failed to load TaskAPI")
 end
