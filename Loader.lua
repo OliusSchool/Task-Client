@@ -14,14 +14,14 @@ for _, Folder in ipairs(Folders) do
     end
 end
 
-local function ExtractVersion(Content)
-    local Version = Content:match('Version%s*=%s*{%s*"([%d%.]+)"')
-    return Version
-end
-
-local function DownloadFile(Path)
+local function DownloadFile(Path, SkipExisting)
+    SkipExisting = SkipExisting or false
     local Url = GitUrl .. Path
     local SavePath = "Task/" .. Path
+
+    if SkipExisting and isfile(SavePath) then
+        return true
+    end
 
     local ParentDir = SavePath:match("(.+)/[^/]+$")
     if ParentDir and not isfolder(ParentDir) then
@@ -41,7 +41,7 @@ local function DownloadFile(Path)
     
     if Response.StatusCode == 200 then
         writefile(SavePath, Response.Body)
-        return true, Response.Body
+        return true
     else
         warn("Failed to download: " .. Url .. " (Status: " .. Response.StatusCode .. ")")
         return false
@@ -78,7 +78,7 @@ local function GetFolderFiles(Folder)
     end
     
     for _, File in ipairs(Data) do
-        if File.type == "file" then
+        if File.type == "File" then
             table.insert(Files, Folder .. "/" .. File.name)
         elseif File.type == "dir" then
             local SubFiles = GetFolderFiles(File.path)
@@ -91,7 +91,7 @@ local function GetFolderFiles(Folder)
     return Files
 end
 
-local function RetryFolder(Folder, MaxRetries)
+local function RetryFolder(Folder, MaxRetries, SkipExisting)
     local Retries = 0
     local Success = false
     
@@ -100,7 +100,7 @@ local function RetryFolder(Folder, MaxRetries)
         
         if #Files > 0 then
             for _, File in ipairs(Files) do
-                if DownloadFile(File) then
+                if DownloadFile(File, SkipExisting) then
                     Success = true
                 end
             end
@@ -119,81 +119,65 @@ local function RetryFolder(Folder, MaxRetries)
     return false
 end
 
-local function NeedsUpdate()
-    local CurrentVersion = nil
-    if isfile("Task/API/TaskAPI.lua") then
-        local success, content = pcall(readfile, "Task/API/TaskAPI.lua")
-        if success then
-            CurrentVersion = ExtractVersion(content)
-        end
+local function GetCurrentVersion()
+    if isfile("Task/API/Version.txt") then
+        return readfile("Task/API/Version.txt")
     end
-
-    local NewVersion = nil
-    local Url = GitUrl .. "API/TaskAPI.lua"
-    local Response = syn and syn.request({Url = Url, Method = "GET"}) or 
-                    request and request({Url = Url, Method = "GET"}) or 
-                    http_request and http_request({Url = Url, Method = "GET"})
-    
-    if Response and Response.StatusCode == 200 then
-        NewVersion = ExtractVersion(Response.Body)
-    end
-
-    if not NewVersion then
-        warn("Failed to fetch remote Version, skipping update check")
-        return false
-    end
-
-    if not CurrentVersion then
-        warn("No local Version found, installation needed")
-        return true
-    end
-
-    if CurrentVersion ~= NewVersion then
-        warn("Version changed from " .. CurrentVersion .. " to " .. NewVersion .. ", update needed")
-        return true
-    end
-    
-    warn("Versions match (" .. CurrentVersion .. "), no update needed")
-    return false
+    return nil
 end
 
-local function CleanInstallation()
-    warn("Performing clean installation...")
-    
-    local FoldersToClean = {
+local function GetNewVersion()
+    local Url = GitUrl .. "API/Version.txt"
+    local Response
+    if syn then
+        Response = syn.request({Url = Url, Method = "GET"})
+    elseif request then
+        Response = request({Url = Url, Method = "GET"})
+    elseif http_request then
+        Response = http_request({Url = Url, Method = "GET"})
+    else
+        error("Unsupported executor")
+    end
+
+    if Response.StatusCode == 200 then
+        return Response.Body
+    end
+    return nil
+end
+
+local function Installation()
+    local FoldersToDelete = {
         "Task/API",
         "Task/Games",
         "Task/Assets"
     }
-
-    for _, Folder in ipairs(FoldersToClean) do
+    
+    for _, Folder in ipairs(FoldersToDelete) do
         if isfolder(Folder) then
             delfolder(Folder)
-            makefolder(Folder)
         end
-    end
-
-    local FilesToDelete = {
-        "Task/API/TaskAPI.lua",
-        "Task/API/Categories.lua"
-    }
-    
-    for _, File in ipairs(FilesToDelete) do
-        if isfile(File) then
-            delfile(File)
-        end
+        makefolder(Folder)
     end
 end
 
-if NeedsUpdate() then
-    CleanInstallation()
+local CurrentVersion = GetCurrentVersion()
+local NewVersion = GetNewVersion()
+
+if NewVersion and CurrentVersion ~= NewVersion then
+    warn("Version changed from " .. tostring(CurrentVersion) .. " to " .. NewVersion .. ". Cleaning installation.")
+    Installation()
 end
 
 local FolderDownload = {"API", "Games", "Assets", "Configs"}
-local Retry = 3
+local RetryCount = 3
 
 for _, Folder in ipairs(FolderDownload) do
-    RetryFolder(Folder, Retry)
+    local SkipExisting = (Folder == "Configs")
+    RetryFolder(Folder, RetryCount, SkipExisting)
+end
+
+if NewVersion then
+    writefile("Task/API/Version.txt", NewVersion)
 end
 
 local function RunFile(Path)
@@ -225,12 +209,12 @@ if TaskAPI then
     RunFile("Task/API/Categories.lua")
 
     if getgenv().TaskClient and getgenv().TaskClient.API then
-        local Version = "unknown"
-        if TaskAPI.Version and type(TaskAPI.Version) == "table" and #TaskAPI.Version > 0 then
-            Version = TaskAPI.Version[1]
+        local version = "unknown"
+        if isfile("Task/API/Version.txt") then
+            version = readfile("Task/API/Version.txt")
         end
         
-        TaskAPI.Notification("Loader", "Task initialized Successfully! Version: " .. Version, 3, "Success")
+        TaskAPI.Notification("Loader", "Task initialized Successfully! Version: " .. version, 3, "Success")
     else
         warn("Task failed to load properly!")
         if TaskAPI.Notification then
@@ -240,5 +224,3 @@ if TaskAPI then
 else
     warn("Critical error: Failed to load TaskAPI")
 end
-
-print("heelo")
