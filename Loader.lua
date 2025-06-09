@@ -4,7 +4,8 @@ local Folders = {
     "Task Client",
     "Task Client/API",
     "Task Client/Games",
-    "Task Client/Assets"
+    "Task Client/Assets",
+    "Task Client/Configs"
 }
 
 for _, Folder in ipairs(Folders) do
@@ -68,7 +69,7 @@ local function GetDirectoryContents(folder)
     return Files
 end
 
-local FolderDownload = {"API", "Games", "Assets"}
+local FolderDownload = {"API", "Games", "Assets", "Configs"}
 
 for _, Folder in ipairs(FolderDownload) do
     local Files = GetDirectoryContents(Folder)
