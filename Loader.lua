@@ -115,6 +115,10 @@ local function RetryDownload(Folder, MaxRetries)
     return false
 end
 
+DownloadFile("API/Version.txt")
+DownloadFile("API/TaskAPI.lua")
+DownloadFile("API/Categories.lua")
+
 local function GetCurrentVersion()
     if isfile("Task/API/Version.txt") then
         return readfile("Task/API/Version.txt")
@@ -152,10 +156,6 @@ if NewVersion and CurrentVersion ~= NewVersion then
     warn("Version changed from " .. tostring(CurrentVersion) .. " to " .. NewVersion)
     Installation()
 end
-
-DownloadFile("API/Version.txt")
-DownloadFile("API/TaskAPI.lua")
-DownloadFile("API/Categories.lua")
 
 local Retries = 3
 
