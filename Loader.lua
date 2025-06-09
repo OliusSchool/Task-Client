@@ -15,8 +15,8 @@ for _, Folder in ipairs(Folders) do
 end
 
 local function ExtractVersion(Content)
-    local VersionPattern = 'Version%s*=%s*{%s*"([%d%.]+)"%s*}'
-    return Content:match(VersionPattern)
+    local Version = Content:match('Version%s*=%s*{%s*"([%d%.]+)"')
+    return Version
 end
 
 local function DownloadFile(Path)
@@ -87,16 +87,17 @@ local function GetFolderFiles(Folder)
             end
         end
     end
-
+    
     return Files
 end
 
 local function RetryFolder(Folder, MaxRetries)
     local Retries = 0
     local Success = false
-
+    
     while Retries < MaxRetries do
         local Files = GetFolderFiles(Folder)
+        
         if #Files > 0 then
             for _, File in ipairs(Files) do
                 if DownloadFile(File) then
@@ -108,6 +109,7 @@ local function RetryFolder(Folder, MaxRetries)
                 return true
             end
         end
+        
         warn("Retrying download for folder: " .. Folder .. " (attempt " .. (Retries + 1) .. "/" .. MaxRetries .. ")")
         Retries = Retries + 1
         wait(1)
@@ -120,50 +122,75 @@ end
 local function NeedsUpdate()
     local CurrentVersion = nil
     if isfile("Task/API/TaskAPI.lua") then
-        local Content = readfile("Task/API/TaskAPI.lua")
-        CurrentVersion = ExtractVersion(Content)
-    end
-
-    local NewContent
-    local Url = GitUrl .. "API/TaskAPI.lua"
-    local Response = syn and syn.request({Url = Url, Method = "GET"}) or 
-    request and request({Url = Url, Method = "GET"}) or 
-    http_request and http_request({Url = Url, Method = "GET"})
-    
-    if Response and Response.StatusCode == 200 then
-        NewContent = Response.Body
-        local newVersion = ExtractVersion(NewContent)
-
-        if not CurrentVersion or CurrentVersion ~= newVersion then
-            return true, newVersion
+        local success, content = pcall(readfile, "Task/API/TaskAPI.lua")
+        if success then
+            CurrentVersion = ExtractVersion(content)
         end
     end
+
+    local NewVersion = nil
+    local Url = GitUrl .. "API/TaskAPI.lua"
+    local Response = syn and syn.request({Url = Url, Method = "GET"}) or 
+                    request and request({Url = Url, Method = "GET"}) or 
+                    http_request and http_request({Url = Url, Method = "GET"})
     
+    if Response and Response.StatusCode == 200 then
+        NewVersion = ExtractVersion(Response.Body)
+    end
+
+    if not NewVersion then
+        warn("Failed to fetch remote Version, skipping update check")
+        return false
+    end
+
+    if not CurrentVersion then
+        warn("No local Version found, installation needed")
+        return true
+    end
+
+    if CurrentVersion ~= NewVersion then
+        warn("Version changed from " .. CurrentVersion .. " to " .. NewVersion .. ", update needed")
+        return true
+    end
+    
+    warn("Versions match (" .. CurrentVersion .. "), no update needed")
     return false
 end
 
 local function CleanInstallation()
-    local FoldersToDelete = {
+    warn("Performing clean installation...")
+    
+    local FoldersToClean = {
         "Task/API",
         "Task/Games",
         "Task/Assets"
     }
-    
-    for _, Folder in ipairs(FoldersToDelete) do
+
+    for _, Folder in ipairs(FoldersToClean) do
         if isfolder(Folder) then
             delfolder(Folder)
+            makefolder(Folder)
         end
-        makefolder(Folder)
     end
+
+    local FilesToDelete = {
+        "Task/API/TaskAPI.lua",
+        "Task/API/Categories.lua"
+    }
+    
+    for _, File in ipairs(FilesToDelete) do
+        if isfile(File) then
+            delfile(File)
+        end
+    end
+end
+
+if NeedsUpdate() then
+    CleanInstallation()
 end
 
 local FolderDownload = {"API", "Games", "Assets", "Configs"}
 local Retry = 3
-
-if NeedsUpdate() then
-    warn("Version changed or first install. Cleaning installation.")
-    CleanInstallation()
-end
 
 for _, Folder in ipairs(FolderDownload) do
     RetryFolder(Folder, Retry)
